@@ -7,6 +7,7 @@ const OwnedPool = @This();
 
 gpa: std.mem.Allocator,
 pool: std.StringArrayHashMap(void),
+drained: bool = false,
 
 /// Type safe ID for looking into the `pool` of Strings.
 /// Has a limit of 4,294,967,295 so its probably fine for most use cases.
@@ -23,13 +24,12 @@ pub fn init(gpa: std.mem.Allocator) OwnedPool {
 }
 
 pub fn deinit(self: *OwnedPool) void {
-    for (self.pool.keys()) |key| {
-        self.gpa.free(key);
-    }
+    for (self.pool.keys()) |key| self.gpa.free(key);
     self.pool.deinit();
 }
 
 pub fn intern(self: *OwnedPool, string: []const u8) !StringID {
+    std.debug.assert(!self.drained);
     if (string.len == 0) return .empty;
 
     const gop = try self.pool.getOrPut(string);
@@ -45,12 +45,28 @@ pub fn lookUp(self: *OwnedPool, id: StringID) []const u8 {
     return self.pool.keys()[@intFromEnum(id)];
 }
 
-pub fn copyPool(self: *OwnedPool, gpa: std.mem.Allocator) !std.StringArrayHashMap(void) {
-    return try self.pool.cloneWithAllocator(gpa);
+/// Performs a deep copy of the `OwnedPool`.
+pub fn copyPool(self: *OwnedPool, gpa: std.mem.Allocator) !OwnedPool {
+    var copy = try self.pool.cloneWithAllocator(gpa);
+    // Safety errder incase something goes wrong
+    errdefer {
+        for (copy.keys()) |k| gpa.free(k);
+        copy.deinit();
+    }
+    try copy.ensureTotalCapacity(self.pool.count());
+    for (self.pool.keys()) |key| {
+        const duped = try gpa.dupe(u8, key);
+        copy.putAssumeCapacity(duped, {});
+    }
+    return .{
+        .pool = copy,
+        .gpa = gpa,
+    };
 }
 
-pub fn drainPool(self: *OwnedPool) std.StringArrayHashMap(void) {
-    return self.pool.move();
+pub fn drainPool(self: *OwnedPool) OwnedPool {
+    self.drained = true;
+    return .{ .map = self.pool.move(), .gpa = self.gpa };
 }
 
 pub fn freePoolKeys(map: *std.StringArrayHashMap(void), gpa: std.mem.Allocator) void {
