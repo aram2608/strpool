@@ -22,9 +22,9 @@ pub fn Stack(comptime T: type) type {
 
         /// Push a new object of type `T` to the `Stack`.
         /// Allocates the necessary memory for each push.
-        pub fn push(self: *Self, allocator: std.mem.Allocator, item: T) !void {
+        pub fn push(self: *Self, gpa: std.mem.Allocator, item: T) !void {
             const new_len = self.items.len + 1;
-            try self.ensureCapacity(allocator, new_len);
+            try self.ensureCapacity(gpa, new_len);
 
             self.items.len = new_len;
             self.items[self.items.len - 1] = item;
@@ -102,7 +102,7 @@ pub fn Stack(comptime T: type) type {
     };
 }
 
-test "Stack" {
+test "Stack: all ops work" {
     var stack = Stack(u8).empty;
     defer stack.deinit(std.testing.allocator);
 
