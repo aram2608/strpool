@@ -1,7 +1,7 @@
 .{
     .name = .utilz,
     .version = "0.0.0",
-    .fingerprint = 0xdd989f2ad4ea01f7, // Changing this has security and trust implications.
+    .fingerprint = 0x2dd3e34f50fbdd1c, // Changing this has security and trust implications.
     .minimum_zig_version = "0.15.2",
     .dependencies = .{},
     .paths = .{
